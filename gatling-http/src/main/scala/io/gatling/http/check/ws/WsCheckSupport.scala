@@ -30,9 +30,12 @@
  */
 package io.gatling.http.check.ws
 
-import scala.concurrent.duration.FiniteDuration
-
+import io.gatling.core.check.DefaultFindCheckBuilder
+import io.gatling.core.check.extractor.Extractor
 import io.gatling.core.session.Expression
+import io.gatling.core.validation.{ Success, Validation }
+
+import scala.concurrent.duration.FiniteDuration
 
 trait WsCheckSupport extends WsCheckDSL {
 
@@ -66,6 +69,15 @@ trait WsCheckDSL {
     def jsonPath(path: Expression[String]) = WsJsonPathCheckBuilder.jsonPath(path, WsCheckBuilders.extender(await, timeout, expectation))
 
     def jsonpJsonPath(path: Expression[String]) = WsJsonpJsonPathCheckBuilder.jsonpJsonPath(path, WsCheckBuilders.extender(await, timeout, expectation))
+
+    def closeCode = {
+      import io.gatling.core.Predef._
+      new DefaultFindCheckBuilder[WsCheck, String, String, String](WsCheckBuilders.extender(await, timeout, expectation), WsCheckBuilders.PassThroughMessagePreparer, new Extractor[String, String]() {
+        override def name: String = "closeCode"
+        override def arity: String = "find"
+        override def apply(prepared: String): Validation[Option[String]] = Success(Some(prepared.stripPrefix("closeCode:")))
+      })
+    }
 
     val message = WsPlainCheckBuilder.message(WsCheckBuilders.extender(await, timeout, expectation))
   }

@@ -278,8 +278,19 @@ class WsActor(wsName: String) extends BaseActor with DataWriterClient {
       case OnClose(status, reason, time) =>
         logger.debug(s"Websocket '$wsName' closed by the server")
         // this close order wasn't triggered by the client, otherwise, we would have received a Close first and state would be closing or stopped
-        // FIXME what about pending checks?
-        handleClose(status, reason, time)
+        tx.check.foreach { check =>
+          implicit val cache = mutable.Map.empty[Any, Any]
+          check.check(s"closeCode:$status", tx.session) match {
+            case Success(result) =>
+              val results = result :: tx.pendingCheckSuccesses
+              succeedPendingCheck(results)
+              webSocket.close()
+              import tx._
+              next ! session.remove(wsName)
+              context.stop(self)
+            case _ => handleClose(status, reason, time)
+          }
+        }
 
       case unexpected =>
         logger.info(s"Discarding unknown message $unexpected while in open state")
